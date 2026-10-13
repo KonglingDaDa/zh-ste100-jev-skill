@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import sys
@@ -27,6 +28,7 @@ if str(_REPO_ROOT) not in sys.path:
 from contracts.schema import (  # noqa: E402
     CONTRACT_VERSION,
     VALID_MODES,
+    JevSemanticVerdict,
     LintFinding,
     LintReport,
     LintSummary,
@@ -602,13 +604,22 @@ def format_human_report(report: LintReport) -> str:
     ]
     if not report.findings:
         lines.append("✓ 零违规：未检出硬门禁违规或西化病句。")
-        return "\n".join(lines)
+    else:
+        lines.append("-" * 72)
+        for f in report.findings:
+            badge = "[硬违规]" if f.level == "advisory-free" else "[软提示]"
+            lines.append(f"{f.file}:{f.line}:{f.col} {badge} [{f.rule}] 命中: {f.match!r}")
+            lines.append(f"  原因: {f.message}")
 
-    lines.append("-" * 72)
-    for f in report.findings:
-        badge = "[硬违规]" if f.level == "advisory-free" else "[软提示]"
-        lines.append(f"{f.file}:{f.line}:{f.col} {badge} [{f.rule}] 命中: {f.match!r}")
-        lines.append(f"  原因: {f.message}")
+    if report.jev is not None:
+        jv = report.jev
+        lines.append(
+            f"[Jev 语义复核] status={jv.status} | verdict={jv.verdict} | "
+            f"definite={jv.conclusion_definite} | no_taichi={jv.no_taichi_hedging} | "
+            f"bamboo_flow={jv.bamboo_flow_natural} | preserved={jv.meaning_preserved}"
+        )
+        if jv.notes:
+            lines.append(f"  说明: {jv.notes}")
     return "\n".join(lines)
 
 
@@ -689,6 +700,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-chars", type=int, default=None, help="覆盖当前档位的单句有效字词数上限")
     parser.add_argument("--baseline", type=int, default=0, help="允许容忍的硬违规数量上限（默认 0）")
     parser.add_argument("--disable", type=str, default="", help="逗号分隔的禁用规则 ID 列表")
+    parser.add_argument("--jev", action="store_true", help="同时运行 Jev（TypeSafe System One）语义复核")
+    parser.add_argument("--original", type=str, default=None, help="配合 --jev 使用：改写前的原文文件路径")
     parser.add_argument("--json", action="store_true", help="输出符合 zh-ste100/v1 契约的 JSON")
     parser.add_argument("--list-rules", action="store_true", help="列出全部规则 ID、引擎分类与说明")
     parser.add_argument("--selftest", action="store_true", help="运行内置确定性自检套件")
@@ -710,12 +723,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     all_findings: list[LintFinding] = []
+    collected_texts: list[str] = []
     total_chars = 0
     total_sentences = 0
     effective_max = args.max_chars if args.max_chars is not None else MODE_MAX_CHARS[args.mode]
 
     if not args.files:
         content = sys.stdin.read()
+        collected_texts.append(content)
         rep = lint_text(
             content,
             filename="<stdin>",
@@ -734,6 +749,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Error: 文件不存在或不可读: {fpath}", file=sys.stderr)
                 return 2
             content = p.read_text(encoding="utf-8")
+            collected_texts.append(content)
             rep = lint_text(
                 content,
                 filename=str(fpath),
@@ -746,10 +762,25 @@ def main(argv: list[str] | None = None) -> int:
             total_chars += rep.summary.total_chars
             total_sentences += rep.summary.total_sentences
 
+    jev_verdict: JevSemanticVerdict | None = None
+    if args.jev:
+        jev_script = Path(__file__).resolve().parent / "zh-ste-jev.py"
+        spec = importlib.util.spec_from_file_location("zh_ste_jev", jev_script)
+        if spec is not None and spec.loader is not None:
+            jev_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(jev_mod)
+            orig_text = Path(args.original).read_text(encoding="utf-8") if args.original else None
+            jev_verdict = jev_mod.call_jev_gateway(
+                "\n\n".join(collected_texts),
+                mode=args.mode,
+                original_text=orig_text,
+            )
+
     hard_count = sum(1 for f in all_findings if f.level == "advisory-free")
     soft_count = sum(1 for f in all_findings if f.level == "advisory")
     rate = round((len(all_findings) / total_chars) * 100.0, 2) if total_chars > 0 else 0.0
-    passed = hard_count <= args.baseline
+    jev_ok = jev_verdict is None or jev_verdict.verdict in ("pass", "skipped")
+    passed = (hard_count <= args.baseline) and jev_ok
 
     combined_report = LintReport(
         schema_version=CONTRACT_VERSION,
@@ -766,6 +797,7 @@ def main(argv: list[str] | None = None) -> int:
             passed=passed,
         ),
         findings=all_findings,
+        jev=jev_verdict,
     )
 
     if args.json:

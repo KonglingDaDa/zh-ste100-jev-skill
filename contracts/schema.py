@@ -92,26 +92,6 @@ class LintSummary:
 
 
 @dataclass(frozen=True)
-class LintReport:
-    """Top-level output contract for zh-ste-lint."""
-
-    schema_version: str
-    summary: LintSummary
-    findings: list[LintFinding] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        if self.schema_version != CONTRACT_VERSION:
-            raise ValueError(f"Unsupported schema_version {self.schema_version!r}")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "summary": self.summary.to_dict(),
-            "findings": [f.to_dict() for f in self.findings],
-        }
-
-
-@dataclass(frozen=True)
 class JevSemanticVerdict:
     """Output contract for optional Jev (System One) semantic check."""
 
@@ -132,3 +112,27 @@ class JevSemanticVerdict:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class LintReport:
+    """Top-level output contract for zh-ste-lint."""
+
+    schema_version: str
+    summary: LintSummary
+    findings: list[LintFinding] = field(default_factory=list)
+    jev: JevSemanticVerdict | None = None
+
+    def __post_init__(self) -> None:
+        if self.schema_version != CONTRACT_VERSION:
+            raise ValueError(f"Unsupported schema_version {self.schema_version!r}")
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "schema_version": self.schema_version,
+            "summary": self.summary.to_dict(),
+            "findings": [f.to_dict() for f in self.findings],
+        }
+        if self.jev is not None:
+            payload["jev"] = self.jev.to_dict()
+        return payload

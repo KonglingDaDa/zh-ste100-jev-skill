@@ -77,12 +77,12 @@ version: 1.0.0
    - 把所有 `对…进行/完成/作出` 还原成单/双音节真动词（查 `references/controlled-lexicon.md`）；
    - 把 ≥3 个「的」的长定语和分号长句，按时间/因果拆成竹节短句；
    - 在 `report` 档下，把结论定死在第一句，把已验证和未验证拆成两句明话。
-4. **运行确定性检查器（必跑门禁）**：
+4. **运行确定性检查器 + 可选 Jev 语义复核（一条命令）**：
    ```bash
-   python3 scripts/zh-ste-lint.py --mode report <文件或通过 stdin 传入>
+   python3 scripts/zh-ste-lint.py --mode report --jev <文件或通过 stdin 传入>
    ```
    确保 `hard_violations == 0`（退出码 `0`），并处理 `de-stacking` / `dangling-pronoun` 提示。
-5. **可选 Jev 语义复核（当配有本机 18650 网关时）**：
+5. **独立运行 Jev 语义复核（对比改写前后保真度）**：
    ```bash
    python3 scripts/zh-ste-jev.py --mode report --file <改写后文件> --original <原文文件>
    ```

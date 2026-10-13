@@ -1,6 +1,6 @@
-# `zh-ste100-skill` — 中文受控技术与汇报写作技能（软硬双引擎）
+# `zh-ste100-jev-skill` — 中文受控技术与汇报写作技能（软硬双引擎 + Jev 语义门禁）
 
-> **用中国民机手册的「硬信息门禁」锁死事实与确定性，用汉语言文学的「竹节流水句」治好 AI 翻译腔。**
+> **用中国民机手册的「硬信息门禁」锁死事实与确定性，用汉语言文学的「竹节流水句」治好 AI 翻译腔，再用 Jev（TypeSafe System One）做百毫秒级语义终审。**
 >
 > 专治中文 AI 任务报告、技术文档与排障说明**「每个字都认识，但串在一起不知道在说什么，且满篇打太极」**的顽疾。
 
@@ -115,6 +115,9 @@ python3 scripts/zh-ste-lint.py --mode procedure your-runbook.md
 # 从标准输入直接检查一段 AI 回复，并输出结构化 JSON（契约版本 zh-ste100/v1）
 echo "需要注意的是，已经对相关配置进行了最小侵入式收口；基本上应该好了。" \
   | python3 scripts/zh-ste-lint.py --mode report --json
+
+# 一条命令同时跑「静态软硬双检 + Jev 语义复核」，并输出 JSON
+python3 scripts/zh-ste-lint.py --mode report --jev --json examples/after-only.md
 
 # 列出全部 13 条软硬检查规则
 python3 scripts/zh-ste-lint.py --list-rules
