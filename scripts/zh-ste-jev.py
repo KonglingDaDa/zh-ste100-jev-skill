@@ -58,51 +58,51 @@ def build_jev_payload(
 
     questions: dict[str, Any] = {
         "conclusion_definite": {
-            "type": "bool",
+            "type": "noul",
             "instructions": (
                 "Judge whether `candidate_text` states a clear, direct conclusion or action right at the beginning "
                 "without throat-clearing or bureaucratic preamble."
             ),
             "criteria": {
-                "true": (
+                "yes": (
                     "Opens immediately with a concrete verdict, current status, root cause, or direct instruction "
                     "so the reader knows the outcome in the first sentence."
                 ),
-                "false": (
+                "no": (
                     "Starts with vague background, process monologue, empty filler phrases, or hides the conclusion "
                     "at the end of a long paragraph."
                 ),
             },
         },
         "no_taichi_hedging": {
-            "type": "bool",
+            "type": "noul",
             "instructions": (
                 "Judge whether `candidate_text` avoids evasive hedging ('打太极') and states verified vs. unverified "
                 "facts with concrete precision."
             ),
             "criteria": {
-                "true": (
+                "yes": (
                     "States verified outcomes and unverified boundaries explicitly with concrete names/numbers, "
                     "without evasive words like '基本上应该', '理论上差不多', or '在一定程度上'."
                 ),
-                "false": (
+                "no": (
                     "Uses evasive qualifiers, vague quantifiers ('若干/相关/大体上'), or blurs whether verification "
                     "actually succeeded."
                 ),
             },
         },
         "bamboo_flow_natural": {
-            "type": "bool",
+            "type": "noul",
             "instructions": (
                 "Judge whether `candidate_text` reads like natural Chinese bamboo-joint clauses (竹节流水句) "
                 "with clear subject + concrete verb order, free of westernized long pre-nominal modifiers."
             ),
             "criteria": {
-                "true": (
+                "yes": (
                     "Uses short, sequential Chinese clauses ordered by condition/cause -> actor + concrete verb -> result, "
                     "easy to understand in one pass."
                 ),
-                "false": (
+                "no": (
                     "Contains awkward translationese shells ('基于…下/针对…问题'), stacked '的' modifiers before nouns, "
                     "or weak nominalized verbs ('对…进行/完成对…的')."
                 ),
@@ -112,17 +112,17 @@ def build_jev_payload(
 
     if "original_text" in state:
         questions["meaning_preserved"] = {
-            "type": "bool",
+            "type": "noul",
             "instructions": (
                 "Compare `candidate_text` against `original_text` and judge whether all factual claims, numbers, "
                 "conditions, warnings, and epistemic modality are faithfully preserved."
             ),
             "criteria": {
-                "true": (
+                "yes": (
                     "Preserves every fact, number, precondition, warning, and uncertainty boundary from `original_text` "
                     "without inventing facts or upgrading 'possible' to 'certain'."
                 ),
-                "false": (
+                "no": (
                     "Drops safety conditions/numbers, invents unsupported facts, or changes the factual conclusion "
                     "of `original_text`."
                 ),
@@ -130,7 +130,7 @@ def build_jev_payload(
         }
 
     return {
-        "model": "typesafe/jev-latest",
+        "model": "jev-latest",
         "state": state,
         "questions": questions,
     }
@@ -214,13 +214,13 @@ def call_jev_gateway(
 
     payload = build_jev_payload(candidate_text, mode=mode, original_text=original_text)
     req_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    parsed = urllib.parse.urlsplit(f"{resolved_url}/v1/classify")
+    parsed = urllib.parse.urlsplit(f"{resolved_url}/v1/systemone")
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ValueError(f"Unsupported Jev gateway URL scheme or host: {resolved_url!r}")
 
     conn_cls = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
     conn = conn_cls(parsed.netloc, timeout=timeout_sec)
-    path = parsed.path or "/v1/classify"
+    path = parsed.path or "/v1/systemone"
     if parsed.query:
         path = f"{path}?{parsed.query}"
 
@@ -293,7 +293,7 @@ def run_selftest() -> int:
         mode="report",
         original_text="针对网关鉴权进行了修复，单测通过。",
     )
-    if p["model"] != "typesafe/jev-latest":
+    if p["model"] != "jev-latest":
         raise RuntimeError("Unexpected model name in payload")
     if set(p["questions"].keys()) != {
         "conclusion_definite",
