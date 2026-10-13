@@ -280,9 +280,9 @@ def call_jev_gateway(
 def _extract_prob(ans: Any) -> float | None:
     if not isinstance(ans, dict):
         return None
-    val = ans.get("probability")
+    val = ans.get("noul") if "noul" in ans else ans.get("probability")
     if isinstance(val, (int, float)) and not isinstance(val, bool):
-        return val * 1.0
+        return round(val * 1.0, 4)
     return None
 
 
