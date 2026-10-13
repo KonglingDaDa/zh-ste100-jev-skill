@@ -39,6 +39,16 @@ PASS_THRESHOLD = 0.70
 FAIL_THRESHOLD = 0.35
 
 
+def _clean_markdown_for_jev(text: str) -> str:
+    """剥离纯 Markdown 标题行，避免文档标题干扰首句结论判定."""
+    kept = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    return "\n".join(kept)[:4000]
+
+
 def build_jev_payload(
     candidate_text: str,
     *,
@@ -51,10 +61,10 @@ def build_jev_payload(
 
     state: dict[str, Any] = {
         "mode": mode,
-        "candidate_text": candidate_text.strip()[:4000],
+        "candidate_text": _clean_markdown_for_jev(candidate_text),
     }
     if original_text is not None and original_text.strip():
-        state["original_text"] = original_text.strip()[:4000]
+        state["original_text"] = _clean_markdown_for_jev(original_text)
 
     questions: dict[str, Any] = {
         "conclusion_definite": {
@@ -94,16 +104,16 @@ def build_jev_payload(
         "bamboo_flow_natural": {
             "type": "noul",
             "instructions": (
-                "Judge whether `candidate_text` reads like natural Chinese bamboo-joint clauses (竹节流水句) "
-                "with clear subject + concrete verb order, free of westernized long pre-nominal modifiers."
+                "Judge whether `candidate_text` uses clear, direct Chinese clauses (subject + concrete verb) "
+                "instead of convoluted bureaucratic translationese."
             ),
             "criteria": {
                 "yes": (
-                    "Uses short, sequential Chinese clauses ordered by condition/cause -> actor + concrete verb -> result, "
-                    "easy to understand in one pass."
+                    "Uses direct, concise Chinese sentences or numbered steps with concrete verbs, free of "
+                    "bureaucratic shells ('基于…下/针对…问题') and nominalized weak verbs ('对…进行/完成对…的')."
                 ),
                 "no": (
-                    "Contains awkward translationese shells ('基于…下/针对…问题'), stacked '的' modifiers before nouns, "
+                    "Contains awkward translationese shells ('基于…下/针对…问题'), 3+ stacked '的' modifiers before a noun, "
                     "or weak nominalized verbs ('对…进行/完成对…的')."
                 ),
             },
