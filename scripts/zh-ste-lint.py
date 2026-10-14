@@ -267,7 +267,7 @@ COLLOQUIAL_SLANG_PATTERN = re.compile(
 
 # 13. 王小波工程说理规范：禁用自夸与无证据满口打包票（overclaim-absolutism）
 OVERCLAIM_PATTERN = re.compile(
-    r"(?:已彻底解决|完全没有问题|绝对不会出问题|百分百没问题|毫无疑问|"
+    r"(?:(?:已|已经)?彻底解决|完全没有问题|绝对不会出问题|百分百没问题|毫无疑问|"
     r"优雅地解决|优雅的重构|显著提升了(?:模块|系统|代码)?的鲁棒性)"
 )
 
