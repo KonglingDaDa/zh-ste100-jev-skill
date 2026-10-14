@@ -116,6 +116,16 @@ RULE_CATALOG: dict[str, dict[str, str]] = {
         "level": "advisory",
         "desc": "余光中指出的西化“名词化主宾语”（如“书籍的选购/接口的调用失败”），地道中文应以动宾或主谓小句（“选购书籍/调用接口失败”）做主宾语",
     },
+    "colloquial-slang": {
+        "engine": "hard",
+        "level": "advisory-free",
+        "desc": "王小波工程规范：禁用粗俗或含糊俚语描述故障与方案（抽风/炸了/抗造/太蠢/挂了），应说明具体技术行为",
+    },
+    "overclaim-absolutism": {
+        "engine": "hard",
+        "level": "advisory-free",
+        "desc": "王小波工程规范：禁用自夸与无证据满口打包票（优雅的重构/毫无疑问/已彻底解决/完全没有问题），应写明验证范围与限制",
+    },
 }
 
 # 1. 万能弱动词（文字的义肢）
@@ -248,6 +258,18 @@ NOUN_PHRASE_SUBJECT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         r"西化名词词组：建议去掉“的”，改用动宾/主谓小句（如“调用\1”或“\1\2”）",
     ),
 ]
+
+# 12. 王小波工程说理规范：禁用粗俗俚语冒充清楚（colloquial-slang）
+COLLOQUIAL_SLANG_PATTERN = re.compile(
+    r"(?:抽风|一路往上炸|迟早会炸|原地爆炸|炸了|抗造|太蠢|蠢透了|"
+    r"(?:数据库|服务|节点|接口|系统|机器)挂了)"
+)
+
+# 13. 王小波工程说理规范：禁用自夸与无证据满口打包票（overclaim-absolutism）
+OVERCLAIM_PATTERN = re.compile(
+    r"(?:已彻底解决|完全没有问题|绝对不会出问题|百分百没问题|毫无疑问|"
+    r"优雅地解决|优雅的重构|显著提升了(?:模块|系统|代码)?的鲁棒性)"
+)
 
 # 10. 同义轮换组（每组内同时出现 >=2 个不同词即报警）
 SYNONYM_GROUPS: dict[str, tuple[str, ...]] = {
@@ -620,7 +642,47 @@ def lint_text(
                                 )
                             )
 
-                # 15. 同义轮换扫描（synonym-rotation）
+                # 15. 王小波工程说理：禁用粗俗含糊口语（colloquial-slang）
+                if "colloquial-slang" not in disabled:
+                    for m in COLLOQUIAL_SLANG_PATTERN.finditer(sent_clean):
+                        findings.append(
+                            LintFinding(
+                                file=filename,
+                                line=line_idx,
+                                col=sent_col + m.start(),
+                                rule="colloquial-slang",
+                                level=_active_level("colloquial-slang", mode),
+                                engine="hard",
+                                match=m.group(0),
+                                message=(
+                                    f"禁用粗俗或含糊俚语“{m.group(0)}”；"
+                                    "请说明实际技术行为（如“请求超时/进程退出/计数丢失/内存占用增加”）"
+                                ),
+                                suggestion="替换为具体可观测的系统行为",
+                            )
+                        )
+
+                # 16. 王小波工程说理：禁用自夸与无证据打包票（overclaim-absolutism）
+                if "overclaim-absolutism" not in disabled:
+                    for m in OVERCLAIM_PATTERN.finditer(sent_clean):
+                        findings.append(
+                            LintFinding(
+                                file=filename,
+                                line=line_idx,
+                                col=sent_col + m.start(),
+                                rule="overclaim-absolutism",
+                                level=_active_level("overclaim-absolutism", mode),
+                                engine="hard",
+                                match=m.group(0),
+                                message=(
+                                    f"禁用自夸或满口打包票“{m.group(0)}”；"
+                                    "请客观交代具体改动、已验证范围与待观察限制"
+                                ),
+                                suggestion="说明具体验证范围与待观察边界",
+                            )
+                        )
+
+                # 17. 同义轮换扫描（synonym-rotation）
                 if "synonym-rotation" not in disabled:
                     for group_name, words in SYNONYM_GROUPS.items():
                         for w in words:
@@ -705,11 +767,11 @@ def format_human_report(report: LintReport) -> str:
 
 def run_selftest() -> int:
     """内置自检断言（验证硬违规、软章法、客观情态豁免、代码块忽略、表格解析与三档句长）."""
-    # 1. 典型 AI 病句应同时触发硬门禁与汉语言文学软章法（含余光中常态论规则）
+    # 1. 典型 AI 病句应同时触发硬门禁与汉语言文学软章法（含余光中常态论与王小波说理规范）
     bad_sample = (
         "需要注意的是，本次针对网关在缺少凭证的情况下可能会引发异常的相关问题，"
-        "由于接口的调用失败导致了连接中断，已经通过最小侵入式的方式完成了对鉴权逻辑的边界收口；"
-        "目前其状态基本上应该已经恢复正常且具备良好的可用性，后续会再核查并检查若干配置。"
+        "由于接口的调用失败导致了数据库挂了，已经通过最小侵入式的方式完成了对鉴权逻辑的边界收口；"
+        "目前其状态基本上应该已经彻底解决且具备良好的可用性，后续会再核查并检查若干配置。"
     )
     rep = lint_text(bad_sample, filename="bad.md", mode="report")
     triggered_rules = {f.rule for f in rep.findings}
@@ -727,6 +789,8 @@ def run_selftest() -> int:
         "synonym-rotation",
         "pseudo-abstract-noun",
         "noun-phrase-subject",
+        "colloquial-slang",
+        "overclaim-absolutism",
     }
     missing = expected_rules - triggered_rules
     if missing:
