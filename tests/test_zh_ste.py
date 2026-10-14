@@ -117,21 +117,15 @@ class TestZhSteLinter(unittest.TestCase):
         rep = lint_mod.lint_text(bad, filename="sample.md", mode="report")
         rules = {f.rule for f in rep.findings}
         for expected in (
-            "empty-phrase",
-            "translationese-shell",
-            "de-stacking",
-            "jargon-buzzword",
-            "nominalization",
-            "semicolon-join",
-            "long-sentence",
             "taichi-hedge",
-            "dangling-pronoun",
-            "vague-quantifier",
+            "overclaim",
+            "bamboo-length",
+            "de-stacking",
+            "western-shell",
+            "weak-verb",
+            "buzzword-slang",
+            "vague-reference",
             "synonym-rotation",
-            "pseudo-abstract-noun",
-            "noun-phrase-subject",
-            "colloquial-slang",
-            "overclaim-absolutism",
         ):
             self.assertIn(expected, rules)
         self.assertFalse(rep.summary.passed)
@@ -142,13 +136,13 @@ class TestZhSteLinter(unittest.TestCase):
         self.assertEqual(lint_mod.count_effective_units(sent_31), 31)
 
         rep_proc = lint_mod.lint_text(sent_31, mode="procedure")
-        self.assertIn("long-sentence", {f.rule for f in rep_proc.findings})
+        self.assertIn("bamboo-length", {f.rule for f in rep_proc.findings})
 
         rep_report = lint_mod.lint_text(sent_31, mode="report")
-        self.assertNotIn("long-sentence", {f.rule for f in rep_report.findings})
+        self.assertNotIn("bamboo-length", {f.rule for f in rep_report.findings})
 
         rep_desc = lint_mod.lint_text(sent_31, mode="descriptive")
-        self.assertNotIn("long-sentence", {f.rule for f in rep_desc.findings})
+        self.assertNotIn("bamboo-length", {f.rule for f in rep_desc.findings})
 
     def test_cli_json_and_selftest(self) -> None:
         proc = subprocess.run(
