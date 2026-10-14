@@ -106,6 +106,16 @@ RULE_CATALOG: dict[str, dict[str, str]] = {
         "level": "advisory",
         "desc": "可改为真动词主动句的西化被动结构（被…所/由…所/由于…所导致的）",
     },
+    "pseudo-abstract-noun": {
+        "engine": "hard",
+        "level": "advisory-free",
+        "desc": "余光中痛批的“伪术语与抽象度词”（具有很高的可读性/具备良好的可用性/实现了…的自动化），应改用朴素形容词或真动词",
+    },
+    "noun-phrase-subject": {
+        "engine": "soft",
+        "level": "advisory",
+        "desc": "余光中指出的西化“名词化主宾语”（如“书籍的选购/接口的调用失败”），地道中文应以动宾或主谓小句（“选购书籍/调用接口失败”）做主宾语",
+    },
 }
 
 # 1. 万能弱动词（文字的义肢）
@@ -204,6 +214,40 @@ PASSIVE_VOICE_PATTERN = re.compile(
     r"由[^，。；！？\n]{1,12}?所[\u4e00-\u9fff]{2,4}|"
     r"被(?:意外|成功|自动|重新|完整)[\u4e00-\u9fff]{2,4})"
 )
+
+# 10. 余光中《论中文的常态与变态》：伪术语与抽象度词（“名词成灾”）
+PSEUDO_ABSTRACT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(
+            r"(?:具有|具备|拥有|呈现出|体现出|展现出)(?:了)?(?:较高|很高|良好|较好|极高|一定|更强|颇高)?的?"
+            r"([\u4e00-\u9fff]{1,4}(?:性|度))"
+        ),
+        r"余光中批“伪术语”：勿写“具有/具备…\1”，直接用形容词或真动词写出具体表现",
+    ),
+    (
+        re.compile(r"(?:实现|完成)了对?[\u4e00-\u9fff]{2,10}?的([\u4e00-\u9fff]{2,4}化)"),
+        r"余光中批“抽象名词化”：勿写“实现了…的\1”，直接写具体改了什么步骤或配置",
+    ),
+]
+
+# 11. 余光中《论中文的常态与变态》：西化名词化主宾语（“X的Y”代替小句“XY”或“YX”）
+NOUN_PHRASE_SUBJECT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(
+            r"([\u4e00-\u9fff]{2,8})的(?:再度|再次|频繁|异常|自动|手动)?(调用|加载|初始化|执行|连接|解析|同步|"
+            r"更新|创建|删除|部署|坍方|选购|继续|中断|失败|超时)(?:失败|成功|中断|异常|完成)?"
+            r"(?=(?:，)?(?:是|导致|引起|造成|只好|需要|使|会))"
+        ),
+        r"西化名词化主语：建议按余光中“中文以小句做主语”改为“\1\2…”或“\2\1…”",
+    ),
+    (
+        re.compile(
+            r"(?:由于|因为|随着|反对|杯葛|委托|完成)([\u4e00-\u9fff]{2,8})的"
+            r"(调用|加载|初始化|执行|连接|解析|同步|更新|创建|删除|部署|坍方|选购|继续)(?:失败|异常|超时|中断)?"
+        ),
+        r"西化名词词组：建议去掉“的”，改用动宾/主谓小句（如“调用\1”或“\1\2”）",
+    ),
+]
 
 # 10. 同义轮换组（每组内同时出现 >=2 个不同词即报警）
 SYNONYM_GROUPS: dict[str, tuple[str, ...]] = {
@@ -540,7 +584,43 @@ def lint_text(
                             )
                         )
 
-                # 13. 同义轮换扫描（synonym-rotation）
+                # 13. 余光中：伪术语与抽象度词（pseudo-abstract-noun）
+                if "pseudo-abstract-noun" not in disabled:
+                    for pat, hint in PSEUDO_ABSTRACT_PATTERNS:
+                        for m in pat.finditer(sent_clean):
+                            findings.append(
+                                LintFinding(
+                                    file=filename,
+                                    line=line_idx,
+                                    col=sent_col + m.start(),
+                                    rule="pseudo-abstract-noun",
+                                    level=_active_level("pseudo-abstract-noun", mode),
+                                    engine="hard",
+                                    match=m.group(0),
+                                    message=hint,
+                                    suggestion="改为具体形容词、动词或实测数字",
+                                )
+                            )
+
+                # 14. 余光中：西化名词化主宾语（noun-phrase-subject）
+                if "noun-phrase-subject" not in disabled:
+                    for pat, hint in NOUN_PHRASE_SUBJECT_PATTERNS:
+                        for m in pat.finditer(sent_clean):
+                            findings.append(
+                                LintFinding(
+                                    file=filename,
+                                    line=line_idx,
+                                    col=sent_col + m.start(),
+                                    rule="noun-phrase-subject",
+                                    level=_active_level("noun-phrase-subject", mode),
+                                    engine="soft",
+                                    match=m.group(0),
+                                    message=hint,
+                                    suggestion="改为动宾或主谓小句",
+                                )
+                            )
+
+                # 15. 同义轮换扫描（synonym-rotation）
                 if "synonym-rotation" not in disabled:
                     for group_name, words in SYNONYM_GROUPS.items():
                         for w in words:
@@ -625,11 +705,11 @@ def format_human_report(report: LintReport) -> str:
 
 def run_selftest() -> int:
     """内置自检断言（验证硬违规、软章法、客观情态豁免、代码块忽略、表格解析与三档句长）."""
-    # 1. 典型 AI 病句应同时触发硬门禁与汉语言文学软章法
+    # 1. 典型 AI 病句应同时触发硬门禁与汉语言文学软章法（含余光中常态论规则）
     bad_sample = (
         "需要注意的是，本次针对网关在缺少凭证的情况下可能会引发异常的相关问题，"
-        "已经通过最小侵入式的方式完成了对鉴权逻辑的边界收口；"
-        "目前其状态基本上应该已经恢复正常了，后续会再核查并检查若干配置。"
+        "由于接口的调用失败导致了连接中断，已经通过最小侵入式的方式完成了对鉴权逻辑的边界收口；"
+        "目前其状态基本上应该已经恢复正常且具备良好的可用性，后续会再核查并检查若干配置。"
     )
     rep = lint_text(bad_sample, filename="bad.md", mode="report")
     triggered_rules = {f.rule for f in rep.findings}
@@ -645,6 +725,8 @@ def run_selftest() -> int:
         "dangling-pronoun",
         "vague-quantifier",
         "synonym-rotation",
+        "pseudo-abstract-noun",
+        "noun-phrase-subject",
     }
     missing = expected_rules - triggered_rules
     if missing:

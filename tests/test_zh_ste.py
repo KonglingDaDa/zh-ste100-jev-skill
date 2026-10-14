@@ -111,8 +111,8 @@ class TestZhSteLinter(unittest.TestCase):
     def test_detects_hard_and_soft_diseases_in_bad_report(self) -> None:
         bad = (
             "需要注意的是，本次针对鉴权模块在缺少令牌的情况下可能会引发穿透的相关异常问题，"
-            "已经通过最小侵入式的方式完成了对配置项的收口；"
-            "目前其状态基本上应该已经正常了，后续会核查并检查若干文件。"
+            "由于接口的调用失败导致了连接中断，已经通过最小侵入式的方式完成了对配置项的收口；"
+            "目前其状态基本上应该已经正常且具有很高的可用性，后续会核查并检查若干文件。"
         )
         rep = lint_mod.lint_text(bad, filename="sample.md", mode="report")
         rules = {f.rule for f in rep.findings}
@@ -128,6 +128,8 @@ class TestZhSteLinter(unittest.TestCase):
             "dangling-pronoun",
             "vague-quantifier",
             "synonym-rotation",
+            "pseudo-abstract-noun",
+            "noun-phrase-subject",
         ):
             self.assertIn(expected, rules)
         self.assertFalse(rep.summary.passed)
