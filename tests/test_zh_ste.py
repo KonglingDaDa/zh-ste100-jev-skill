@@ -118,12 +118,12 @@ class TestZhSteLinter(unittest.TestCase):
         rules = {f.rule for f in rep.findings}
         for expected in (
             "taichi-hedge",
-            "overclaim",
+            "empty-overclaim",
             "bamboo-length",
             "de-stacking",
             "western-shell",
             "weak-verb",
-            "buzzword-slang",
+            "buzzword-abstract",
             "vague-reference",
             "synonym-rotation",
         ):

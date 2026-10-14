@@ -46,18 +46,18 @@ MODE_MAX_CHARS: dict[str, int] = {
 
 # 「篇法 · 句法 · 字法」三层九律主目录
 RULE_CATALOG: dict[str, dict[str, str]] = {
-    # 第一层：篇法（谋篇与诚实）
+    # 第一层：篇法（确定性铁律）
     "taichi-hedge": {
         "layer": "篇法",
         "engine": "hard",
         "level": "advisory-free",
-        "desc": "第1律[篇法] 禁太极推诿词（应该已经/基本上/大概/理论上/似乎/在一定程度上），须给死结论或明写未测边界",
+        "desc": "第1律[篇法] 结论给死，禁太极推诿与半途猜测（应该已经/基本上/大概/似乎/目前还不能确定）",
     },
-    "overclaim": {
+    "empty-overclaim": {
         "layer": "篇法",
         "engine": "hard",
         "level": "advisory-free",
-        "desc": "第2律[篇法] 禁空话起手式、自夸与无证据打包票（需要注意的是/优雅的重构/已彻底解决/完全没有问题）",
+        "desc": "第2律[篇法] 开门见山，禁空话起手式、无数字虚夸与免责叠甲尾巴（需要注意的是/已彻底解决/还需部署后观察）",
     },
     # 第二层：句法（竹节与语序）
     "bamboo-length": {
@@ -76,7 +76,7 @@ RULE_CATALOG: dict[str, dict[str, str]] = {
         "layer": "句法",
         "engine": "soft",
         "level": "advisory-free",
-        "desc": "第5律[句法] 剥除欧化介词与被动套壳（基于…下/针对…问题/对于…而言/由于…所导致的）",
+        "desc": "第5律[句法] 剥除欧化介词与被动套壳（基于…下/在这种…配置下/针对…问题/对于…而言/由于…所导致的）",
     },
     # 第三层：字法（选词与定名）
     "weak-verb": {
@@ -85,11 +85,11 @@ RULE_CATALOG: dict[str, dict[str, str]] = {
         "level": "advisory-free",
         "desc": "第6律[字法] 真动词立骨，砍掉弱动词义肢（对…进行/作出/加以/予以/完成对…的）",
     },
-    "buzzword-slang": {
+    "buzzword-abstract": {
         "layer": "字法",
         "engine": "hard",
         "level": "advisory-free",
-        "desc": "第7律[字法] 留真术语；上禁黑话与“具备…性”伪术语，下禁“抽风/炸了/数据库挂了/太蠢”粗俗俚语",
+        "desc": "第7律[字法] 具象直白，禁互联网黑话与余光中痛批的“具备…性/实现了…化”伪抽象度词",
     },
     "vague-reference": {
         "layer": "字法",
@@ -108,17 +108,19 @@ RULE_CATALOG: dict[str, dict[str, str]] = {
 # 兼容旧版细粒度规则名的别名映射（方便 --disable 向后兼容）
 LEGACY_RULE_ALIASES: dict[str, str] = {
     "nominalization": "weak-verb",
-    "empty-phrase": "overclaim",
-    "overclaim-absolutism": "overclaim",
+    "empty-phrase": "empty-overclaim",
+    "overclaim": "empty-overclaim",
+    "overclaim-absolutism": "empty-overclaim",
     "semicolon-join": "bamboo-length",
     "multi-action-chain": "bamboo-length",
     "long-sentence": "bamboo-length",
     "noun-phrase-subject": "de-stacking",
     "translationese-shell": "western-shell",
     "passive-voice": "western-shell",
-    "jargon-buzzword": "buzzword-slang",
-    "pseudo-abstract-noun": "buzzword-slang",
-    "colloquial-slang": "buzzword-slang",
+    "jargon-buzzword": "buzzword-abstract",
+    "pseudo-abstract-noun": "buzzword-abstract",
+    "buzzword-slang": "buzzword-abstract",
+    "colloquial-slang": "buzzword-abstract",
     "dangling-pronoun": "vague-reference",
     "vague-quantifier": "vague-reference",
 }
@@ -134,8 +136,8 @@ TAICHI_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         "第1律[篇法] 删掉零信息度词，写出具体影响范围或数字",
     ),
     (
-        re.compile(r"(?:基本上|大体上|似乎|好像|看起来|不出意外的话|大概率是|大概是)"),
-        "第1律[篇法] 勿打太极：已查实的给死结论；未查实的写“日志显示 A，尚待确认 B”",
+        re.compile(r"(?:基本上|大体上|似乎|好像|看起来|不出意外的话|大概率是|大概是|目前还不能确定是)"),
+        "第1律[篇法] 勿打太极或半途交差：能查实的先查清给死结论；未测项直接点名",
     ),
 ]
 
@@ -147,9 +149,10 @@ OVERCLAIM_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (
         re.compile(
             r"(?:(?:已|已经)?彻底解决|完全没有问题|绝对不会出问题|百分百没问题|毫无疑问|"
-            r"优雅地解决|优雅的重构|显著提升了(?:模块|系统|代码)?的鲁棒性)"
+            r"优雅地解决|优雅的重构|显著提升了(?:模块|系统|代码)?的鲁棒性|"
+            r"还需(?:要)?部署后观察)"
         ),
-        "第2律[篇法] 禁用自夸或无保留打包票；请客观写明具体改动、已验证范围与待观察限制",
+        "第2律[篇法] 禁用无数字虚夸或免责叠甲尾巴；请直接写明具体验证项与未执行项",
     ),
 ]
 
@@ -176,9 +179,9 @@ NOUN_PHRASE_SUBJECT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 
 WESTERN_SHELL_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (
-        re.compile(r"(?:基于|在)[^，。；！？\n]{2,25}?的(?:情况|前提|背景|基础)之?下"),
+        re.compile(r"(?:基于|在)[^，。；！？\n]{2,25}?的(?:情况|前提|背景|基础|配置)之?下"),
         "advisory-free",
-        "第5律[句法] 剥掉“基于/在…的情况下”欧化外壳，直接写前提短句",
+        "第5律[句法] 剥掉“基于/在…的情况/配置下”欧化外壳，直接写前提短句",
     ),
     (
         re.compile(r"针对[^，。；！？\n]{2,30}?的(?:相关)?(?:问题|情况|风险|现象|异常)"),
@@ -265,7 +268,7 @@ BUZZWORD_SLANG_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 VAGUE_REFERENCE_PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (
         re.compile(
-            r"(?:若干个?|一些|一部分|某几个|相关(?:的)?(?:配置|文件|模块|接口|记录|异常|问题|设置)|"
+            r"(?:若干个?|一些|一部分|某几个|相关(?:的)?(?:配置|文件|模块|接口|记录|异常|问题|设置|测试)|"
             r"相应(?:的)?(?:配置|修改|处理)|适当(?:的)?(?:调整|优化|修改)|酌情|必要的时候)"
         ),
         "hard",
@@ -438,8 +441,8 @@ def lint_text(
                                 )
                             )
 
-                # 第 2 律：overclaim
-                if "overclaim" not in disabled:
+                # 第 2 律：empty-overclaim
+                if "empty-overclaim" not in disabled:
                     for pat, hint in OVERCLAIM_PATTERNS:
                         for m in pat.finditer(sent_clean):
                             findings.append(
@@ -447,12 +450,12 @@ def lint_text(
                                     file=filename,
                                     line=line_idx,
                                     col=sent_col + m.start(),
-                                    rule="overclaim",
+                                    rule="empty-overclaim",
                                     level="advisory-free",
                                     engine="hard",
                                     match=m.group(0),
                                     message=hint,
-                                    suggestion="交代具体改动、已验证范围与未知边界",
+                                    suggestion="删掉套话或免责尾巴，直接写具体验证项与未测项",
                                 )
                             )
 
@@ -564,8 +567,8 @@ def lint_text(
                                 )
                             )
 
-                # 第 7 律：buzzword-slang（禁黑话、伪度词与粗俗俚语）
-                if "buzzword-slang" not in disabled:
+                # 第 7 律：buzzword-abstract（禁黑话与伪度词）
+                if "buzzword-abstract" not in disabled:
                     for pat, hint in BUZZWORD_SLANG_PATTERNS:
                         for m in pat.finditer(sent_clean):
                             findings.append(
@@ -573,12 +576,12 @@ def lint_text(
                                     file=filename,
                                     line=line_idx,
                                     col=sent_col + m.start(),
-                                    rule="buzzword-slang",
+                                    rule="buzzword-abstract",
                                     level="advisory-free",
                                     engine="hard",
                                     match=m.group(0),
                                     message=hint,
-                                    suggestion="改用准确工程术语、具体动作或实测数字",
+                                    suggestion="改用具体动作、朴素形容词或实测数字",
                                 )
                             )
 
